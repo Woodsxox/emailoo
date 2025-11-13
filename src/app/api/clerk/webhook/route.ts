@@ -1,5 +1,8 @@
 import { prisma } from "@/server/db";
 
+// Make sure you set CLERK_API_KEY in Vercel environment variables
+const CLERK_API_KEY = process.env.CLERK_API_KEY;
+
 export const POST = async (req: Request) => {
   try {
     const body = await req.json();
@@ -12,44 +15,60 @@ export const POST = async (req: Request) => {
       return new Response("Ignored", { status: 200 });
     }
 
-    // Try multiple ways to extract email
-    const emailFromPayload =
-      data?.email_addresses?.[0]?.email_address ||
-      data?.emailAddresses?.[0]?.emailAddress ||
-      data?.email ||
-      (() => {
-        try {
-          const jsonStr = JSON.stringify(data);
-          const match = /"email_address"\s*:\s*"([^"]+)"/.exec(jsonStr);
-          return match?.[1];
-        } catch {
-          return undefined;
-        }
-      })();
+    const userId = data?.id;
+    if (!userId) {
+      console.error("❌ No user ID in webhook payload");
+      return new Response("No user ID", { status: 400 });
+    }
 
-    if (!emailFromPayload) {
-      console.error("❌ No email found in webhook payload");
+    // Fetch full user from Clerk API
+    const res = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
+      headers: {
+        Authorization: `Bearer ${CLERK_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!res.ok) {
+      console.error("❌ Failed to fetch user from Clerk:", await res.text());
+      return new Response("Failed to fetch user", { status: 500 });
+    }
+
+    const clerkUser = await res.json();
+    console.log("✉️ Clerk user fetched:", clerkUser);
+
+    // Extract email (primary email)
+    const primaryEmail = clerkUser.email_addresses?.find(
+      (e: any) => e.id === clerkUser.primary_email_address_id,
+    )?.email_address;
+
+    if (!primaryEmail) {
+      console.error("❌ No primary email found for user");
       return new Response("No email found", { status: 400 });
     }
 
-    console.log("✉️ Email resolved:", emailFromPayload);
-
-    // Upsert user into DB
+    // Upsert user in DB
     const user = await prisma.user.upsert({
-      where: { emailAddress: emailFromPayload },
+      where: { emailAddress: primaryEmail },
       update: {
-        firstName: data.first_name || data.firstName || "",
-        lastName: data.last_name || data.lastName || "",
+        firstName: clerkUser.first_name || clerkUser.firstName || "",
+        lastName: clerkUser.last_name || clerkUser.lastName || "",
         imageUrl:
-          data.image_url || data.imageUrl || data.profile_image_url || null,
+          clerkUser.image_url ||
+          clerkUser.imageUrl ||
+          clerkUser.profile_image_url ||
+          null,
         updatedAt: new Date(),
       },
       create: {
-        emailAddress: emailFromPayload,
-        firstName: data.first_name || data.firstName || "",
-        lastName: data.last_name || data.lastName || "",
+        emailAddress: primaryEmail,
+        firstName: clerkUser.first_name || clerkUser.firstName || "",
+        lastName: clerkUser.last_name || clerkUser.lastName || "",
         imageUrl:
-          data.image_url || data.imageUrl || data.profile_image_url || null,
+          clerkUser.image_url ||
+          clerkUser.imageUrl ||
+          clerkUser.profile_image_url ||
+          null,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
