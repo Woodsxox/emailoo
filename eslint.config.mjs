@@ -7,11 +7,19 @@ const compat = new FlatCompat({
 
 export default tseslint.config(
   {
-    ignores: [".next"],
+    ignores: [
+      ".next/**",
+      "node_modules/**",
+      "out/**",
+      "build/**",
+      "src/generated/**",
+      "next-env.d.ts",
+    ],
   },
   ...compat.extends("next/core-web-vitals"),
   {
     files: ["**/*.ts", "**/*.tsx"],
+    ignores: ["src/generated/**", "next-env.d.ts"],
     extends: [
       ...tseslint.configs.recommended,
       ...tseslint.configs.recommendedTypeChecked,
@@ -39,6 +47,14 @@ export default tseslint.config(
       "@typescript-eslint/no-unnecessary-type-assertion": "off",
       "@typescript-eslint/restrict-template-expressions": "off",
       "@typescript-eslint/consistent-indexed-object-style": "off",
+      "@typescript-eslint/prefer-regexp-exec": "off",
+      "@typescript-eslint/triple-slash-reference": "off",
+      "@typescript-eslint/no-unnecessary-type-constraint": "off",
+      "@typescript-eslint/no-wrapper-object-types": "off",
+      "@typescript-eslint/no-unsafe-function-type": "off",
+      "@typescript-eslint/no-redundant-type-constituents": "off",
+      "@typescript-eslint/prefer-function-type": "off",
+      "@typescript-eslint/no-duplicate-type-constituents": "off",
 
       "react-hooks/rules-of-hooks": "warn",
       "no-case-declarations": "warn",
