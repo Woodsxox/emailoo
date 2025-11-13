@@ -2,19 +2,21 @@ import { prisma } from "@/server/db";
 
 export const POST = async (req: Request) => {
   try {
-    const { data, type } = await req.json();
-    if (type !== "user.created")
-      return new Response("Ignored", { status: 200 });
+    const body = await req.json();
+    const { data, type } = body;
 
-    // Extract email from various possible locations
-    const email =
+    console.log("🔔 Webhook received:", JSON.stringify(body, null, 2));
+
+    if (type !== "user.created") {
+      console.log("ℹ️ Ignored event type:", type);
+      return new Response("Ignored", { status: 200 });
+    }
+
+    // Try multiple ways to extract email
+    const emailFromPayload =
       data?.email_addresses?.[0]?.email_address ||
       data?.emailAddresses?.[0]?.emailAddress ||
-      data?.email;
-
-    // Fallback: try to extract from JSON string if needed
-    const emailFromString =
-      email ||
+      data?.email ||
       (() => {
         try {
           const jsonStr = JSON.stringify(data);
@@ -25,11 +27,16 @@ export const POST = async (req: Request) => {
         }
       })();
 
-    if (!emailFromString)
-      return new Response("No email found", { status: 200 });
+    if (!emailFromPayload) {
+      console.error("❌ No email found in webhook payload");
+      return new Response("No email found", { status: 400 });
+    }
 
+    console.log("✉️ Email resolved:", emailFromPayload);
+
+    // Upsert user into DB
     const user = await prisma.user.upsert({
-      where: { emailAddress: emailFromString },
+      where: { emailAddress: emailFromPayload },
       update: {
         firstName: data.first_name || data.firstName || "",
         lastName: data.last_name || data.lastName || "",
@@ -38,7 +45,7 @@ export const POST = async (req: Request) => {
         updatedAt: new Date(),
       },
       create: {
-        emailAddress: emailFromString,
+        emailAddress: emailFromPayload,
         firstName: data.first_name || data.firstName || "",
         lastName: data.last_name || data.lastName || "",
         imageUrl:
@@ -48,10 +55,10 @@ export const POST = async (req: Request) => {
       },
     });
 
-    console.log("✅ User saved:", user.emailAddress);
+    console.log("✅ User saved in DB:", user.emailAddress);
     return new Response("User saved", { status: 200 });
-  } catch (e) {
-    console.error("❌ Clerk webhook error:", e);
+  } catch (error) {
+    console.error("❌ Clerk webhook error:", error);
     return new Response("Server Error", { status: 500 });
   }
 };
