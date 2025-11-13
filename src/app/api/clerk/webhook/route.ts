@@ -1,0 +1,44 @@
+import { prisma } from "@/server/db";
+
+export const POST = async (req: Request) => {
+  try {
+    const { data, type } = await req.json();
+    if (type !== "user.created")
+      return new Response("Ignored", { status: 200 });
+
+    const email =
+      data?.email_addresses?.[0]?.email_address ||
+      data?.emailAddresses?.[0]?.emailAddress ||
+      data?.primary_email_address_id ||
+      data?.email ||
+      JSON.stringify(data).match(/"email_address"\s*:\s*"([^"]+)"/)?.[1];
+
+    if (!email) return new Response("No email found", { status: 200 });
+
+    const user = await prisma.user.upsert({
+      where: { emailAddress: email },
+      update: {
+        firstName: data.first_name || data.firstName || "",
+        lastName: data.last_name || data.lastName || "",
+        imageUrl:
+          data.image_url || data.imageUrl || data.profile_image_url || null,
+        updatedAt: new Date(),
+      },
+      create: {
+        emailAddress: email,
+        firstName: data.first_name || data.firstName || "",
+        lastName: data.last_name || data.lastName || "",
+        imageUrl:
+          data.image_url || data.imageUrl || data.profile_image_url || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    console.log("✅ User saved:", user.emailAddress);
+    return new Response("User saved", { status: 200 });
+  } catch (e) {
+    console.error("❌ Clerk webhook error:", e);
+    return new Response("Server Error", { status: 500 });
+  }
+};
