@@ -1,5 +1,10 @@
-import "dotenv/config";
-import { defineConfig, env } from "prisma/config";
+import { defineConfig } from "prisma/config";
+
+// Use process.env directly - prisma generate doesn't need a real connection
+// This prevents errors during build when DATABASE_URL might not be available
+const databaseUrl =
+  process.env.DATABASE_URL ||
+  "postgresql://user:password@localhost:5432/dbname";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -8,6 +13,6 @@ export default defineConfig({
   },
   engine: "classic",
   datasource: {
-    url: env("DATABASE_URL"),
+    url: databaseUrl,
   },
 });
