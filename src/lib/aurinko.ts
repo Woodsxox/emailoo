@@ -11,7 +11,7 @@ export const getAurinkoAuthUrl = async (
 
   // Validate environment variables
   const clientId = process.env.AURINKO_CLIENT_ID;
-  const returnUrl = process.env.NEXT_PUBLIC_URL;
+  let returnUrl = process.env.NEXT_PUBLIC_URL;
 
   if (!clientId) {
     throw new Error("AURINKO_CLIENT_ID environment variable is not set");
@@ -21,10 +21,22 @@ export const getAurinkoAuthUrl = async (
     throw new Error("NEXT_PUBLIC_URL environment variable is not set");
   }
 
+  // Normalize the returnUrl - remove trailing slashes and ensure proper format
+  returnUrl = returnUrl.trim().replace(/\/+$/, "");
+  const callbackUrl = `${returnUrl}/api/aurinko/callback`;
+
+  // Log the exact URL being sent (for debugging)
+  console.log("🔗 Aurinko OAuth Configuration:", {
+    baseUrl: returnUrl,
+    callbackUrl: callbackUrl,
+    serviceType: serviceType,
+    clientId: clientId ? clientId.substring(0, 8) + "***" : "missing",
+  });
+
   // Aurinko API uses camelCase parameter names
   const params = new URLSearchParams({
     clientId: clientId,
-    returnUrl: `${returnUrl}/api/aurinko/callback`,
+    returnUrl: callbackUrl,
     responseType: "code",
     scope: "Mail.Read Mail.ReadWrite Mail.Send Mail.Drafts Mail.All",
     serviceType: serviceType,

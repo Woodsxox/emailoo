@@ -4,6 +4,7 @@ import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 
 import { TRPCReactProvider } from "@/trpc/react";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +32,9 @@ export default function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
-          <TRPCReactProvider>{children}</TRPCReactProvider>
+          <ErrorBoundary>
+            <TRPCReactProvider>{children}</TRPCReactProvider>
+          </ErrorBoundary>
         </body>
       </html>
     </ClerkProvider>
